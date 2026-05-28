@@ -1,0 +1,14 @@
+# Ignorar el entorno virtual
+venv/
+
+# Ignorar archivos temporales de Python
+__pycache__/
+*.pyc
+
+# Ignorar bases de datos locales
+*.db
+*.sqlite3
+
+# Ignorar variables de entorno o llaves de seguridad
+.env
+firebase-key.json
