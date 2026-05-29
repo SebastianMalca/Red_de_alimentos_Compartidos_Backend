@@ -1,30 +1,19 @@
 from fastapi import FastAPI, HTTPException, Depends
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from models import Base, Usuario, PuestoMercado, Comedor, DonacionLote, Reserva, TrazabilidadValoracion
 
-# 1. Configuración de la Base de Datos SQL (Usando SQLite localmente)
+# Configuración de Base de Datos
 SQLALCHEMY_DATABASE_URL = "sqlite:///./red_alimentos.db"
-
-# Engine es el motor de conexión
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
-# 2. Definir la Tabla SQL (Modelo E-R)
-class LoteSQL(Base):
-    __tablename__ = "lotes_excedentes"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    descripcion = Column(String, index=True)
-    estado = Column(String, default="Disponible")
-
-# Crear la base de datos y las tablas automáticamente si no existen
+# Crea las tablas automáticamente al iniciar
 Base.metadata.create_all(bind=engine)
 
-# 3. Crear la aplicación FastAPI
 app = FastAPI(title="API SQL - Red de Alimentos Compartidos")
 
-# Dependencia para abrir y cerrar la conexión en cada petición
+# Dependencia de conexión a BD
 def get_db():
     db = SessionLocal()
     try:
@@ -32,37 +21,33 @@ def get_db():
     finally:
         db.close()
 
-# 4. Endpoints
+# Endpoints
 @app.get("/")
 def home():
-    return {"mensaje": "🚀 API SQL de Red de Alimentos funcionando"}
+    return {"mensaje": "🚀 API actualizada y funcionando con el nuevo diagrama E-R"}
 
 @app.post("/reservar/{id_donacion}")
-def reservar_donacion(id_donacion: int, db: Session = Depends(get_db)):
+def reservar_donacion(id_donacion: int, comedor_id: int, db: Session = Depends(get_db)):
     """
-    Endpoint para mutar el estado de un lote a 'Reservado' en SQL
+    Endpoint ACTUALIZADO: Cambia el estado del lote y crea el registro en la tabla intermedia 'Reserva'
     """
-    # Consulta SQL equivalente a: SELECT * FROM lotes_excedentes WHERE id = id_donacion
-    lote = db.query(LoteSQL).filter(LoteSQL.id == id_donacion).first()
+    # Buscar la donación (Antes se llamaba LoteExcedente, ahora DonacionLote)
+    donacion = db.query(DonacionLote).filter(DonacionLote.id == id_donacion).first()
     
-    if not lote:
-        raise HTTPException(status_code=404, detail="Lote no encontrado")
+    if not donacion:
+        raise HTTPException(status_code=404, detail="Donación no encontrada")
         
-    if lote.estado != "Disponible":
-        raise HTTPException(status_code=400, detail="El lote ya no está disponible")
+    if donacion.estado != "Disponible":
+        raise HTTPException(status_code=400, detail="La donación ya no está disponible")
         
-    # Mutación de estado (El equivalente a UPDATE)
-    lote.estado = "Reservado" # type: ignore
-    db.commit()
-    db.refresh(lote)
+    # Paso 1: Actualizar el estado de la donación
+    donacion.estado = "Reservado"  # type: ignore
     
-    return {"status": "éxito", "mensaje": f"Lote {id_donacion} reservado con éxito en SQL"}
-
-# Endpoint temporal para crear un dato de prueba
-@app.post("/crear-prueba")
-def crear_lote_prueba(db: Session = Depends(get_db)):
-    nuevo_lote = LoteSQL(descripcion="Cajón de tomates", estado="Disponible")
-    db.add(nuevo_lote)
+    # Paso 2: Crear el registro en la tabla intermedia (Romper la relación M:N)
+    nueva_reserva = Reserva(comedor_id=comedor_id, donacion_id=id_donacion)
+    db.add(nueva_reserva)
+    
+    # Guardamos los cambios de ambas tablas al mismo tiempo (Transacción atómica)
     db.commit()
-    db.refresh(nuevo_lote)
-    return {"mensaje": "Lote de prueba creado", "id": nuevo_lote.id}
+    
+    return {"status": "éxito", "mensaje": f"Donación {id_donacion} reservada exitosamente por el comedor {comedor_id}"}
