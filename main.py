@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from models import Base, Usuario, PuestoMercado, Comedor, DonacionLote, Reserva, TrazabilidadValoracion
@@ -12,6 +13,15 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="API SQL - Red de Alimentos Compartidos")
+
+# CONFIGURACIÓN DE CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Permite que cualquier frontend (Web o Móvil) se conecte
+    allow_credentials=True,
+    allow_methods=["*"], # Permite peticiones GET, POST, etc.
+    allow_headers=["*"],
+)
 
 # Dependencia de conexión a BD
 def get_db():
@@ -51,3 +61,28 @@ def reservar_donacion(id_donacion: int, comedor_id: int, db: Session = Depends(g
     db.commit()
     
     return {"status": "éxito", "mensaje": f"Donación {id_donacion} reservada exitosamente por el comedor {comedor_id}"}
+
+@app.post("/crear-datos-prueba")
+def crear_datos_prueba(db: Session = Depends(get_db)):
+    """ Endpoint temporal para inyectar datos en la base de datos vacía """
+    # 1. Crear un puesto falso si no existe
+    puesto = db.query(PuestoMercado).first()
+    if not puesto:
+        puesto = PuestoMercado(nombre_puesto="Frutas Doña María", ubicacion_gps="Pabellón 3")
+        db.add(puesto)
+        db.commit()
+        db.refresh(puesto)
+    
+    # 2. Crear una donación asociada a ese puesto
+    nueva_donacion = DonacionLote(puesto_id=puesto.id, descripcion="10 kg de Plátanos maduros", estado="Disponible")
+    db.add(nueva_donacion)
+    db.commit()
+    
+    return {"mensaje": "Datos de prueba inyectados correctamente"}
+
+@app.get("/donaciones")
+def listar_donaciones(db: Session = Depends(get_db)):
+    """ Devuelve la lista de todas las donaciones disponibles """
+    # Selecciona solo los que dicen "Disponible"
+    donaciones = db.query(DonacionLote).filter(DonacionLote.estado == "Disponible").all()
+    return donaciones
