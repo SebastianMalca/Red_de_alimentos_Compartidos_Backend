@@ -78,7 +78,7 @@ def confirmar_recojo(id_reserva: int, puntaje_frescura: int, comentario: str, db
     if not donacion:
         raise HTTPException(status_code=404, detail="Donación asociada no encontrada")
 
-    co2_calculado = 2.5
+    co2_calculado = round(donacion.cantidad_kg * 2.5, 2)
     nueva_trazabilidad = TrazabilidadValoracion(
         reserva_id=reserva.id,
         comedor_id=reserva.comedor_id,
