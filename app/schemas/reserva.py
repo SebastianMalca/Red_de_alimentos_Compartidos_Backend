@@ -16,3 +16,4 @@ class ConfirmarRecojoResponse(BaseModel):
     mensaje: str
     impacto: str
     puntaje_asignado: int
+    comentario: str | None = None

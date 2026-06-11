@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, String
+from sqlalchemy import CheckConstraint, Column, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -16,6 +16,7 @@ class DonacionLote(Base):
     id = Column(Integer, primary_key=True, index=True)
     puesto_id = Column(Integer, ForeignKey("puestos_mercado.id"), nullable=False)
     descripcion = Column(String(500), nullable=False)
+    cantidad_kg = Column(Float, nullable=False, default=0)
     estado = Column(String(32), default="Disponible", nullable=False)
 
     puesto = relationship("PuestoMercado", back_populates="donaciones")

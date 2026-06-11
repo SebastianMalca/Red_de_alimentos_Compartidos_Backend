@@ -63,7 +63,7 @@ def ver_reservas_pendientes(comedor_id: int, db: Session) -> list[dict]:
     ]
 
 
-def confirmar_recojo(id_reserva: int, puntaje_frescura: int, db: Session) -> dict:
+def confirmar_recojo(id_reserva: int, puntaje_frescura: int, comentario: str, db: Session) -> dict:
     if not 1 <= puntaje_frescura <= 5:
         raise HTTPException(status_code=422, detail="El puntaje de frescura debe estar entre 1 y 5")
 
@@ -78,13 +78,14 @@ def confirmar_recojo(id_reserva: int, puntaje_frescura: int, db: Session) -> dic
     if not donacion:
         raise HTTPException(status_code=404, detail="Donación asociada no encontrada")
 
-    co2_calculado = 2.5
+    co2_calculado = round(donacion.cantidad_kg * 2.5, 2)
     nueva_trazabilidad = TrazabilidadValoracion(
         reserva_id=reserva.id,
         comedor_id=reserva.comedor_id,
         puesto_id=donacion.puesto_id,
         huella_co2_ahorrada=co2_calculado,
         puntaje_frescura=puntaje_frescura,
+        comentario=comentario if comentario else None,
     )
     db.add(nueva_trazabilidad)
     reserva.estado = ESTADO_COMPLETADA
@@ -100,4 +101,5 @@ def confirmar_recojo(id_reserva: int, puntaje_frescura: int, db: Session) -> dic
         "mensaje": "Recojo confirmado exitosamente",
         "impacto": f"¡Felicidades! Ahorraste {co2_calculado} kg de CO2",
         "puntaje_asignado": puntaje_frescura,
+        "comentario": comentario,
     }
