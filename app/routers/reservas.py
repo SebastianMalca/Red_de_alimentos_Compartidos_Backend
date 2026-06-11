@@ -23,6 +23,7 @@ def pendientes(comedor_id: int, db: Session = Depends(get_db)):
 def confirmar(
     id_reserva: int,
     puntaje_frescura: int = Query(..., ge=1, le=5),
+    comentario: str = Query(""),
     db: Session = Depends(get_db),
 ):
-    return confirmar_recojo(id_reserva, puntaje_frescura, db)
+    return confirmar_recojo(id_reserva, puntaje_frescura, comentario, db)

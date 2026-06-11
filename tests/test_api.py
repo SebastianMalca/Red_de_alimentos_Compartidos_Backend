@@ -75,14 +75,36 @@ def test_donacion_reserva_recojo_e_impacto(client: TestClient) -> None:
     ]
 
     confirmar_response = client.post(
-        f"/confirmar-recojo/{id_reserva}", params={"puntaje_frescura": 5}
+        f"/confirmar-recojo/{id_reserva}",
+        params={"puntaje_frescura": 5, "comentario": "Muy fresca la fruta"},
     )
     assert confirmar_response.status_code == 200
     assert confirmar_response.json()["puntaje_asignado"] == 5
+    assert confirmar_response.json()["comentario"] == "Muy fresca la fruta"
 
     impacto_response = client.get(f"/mi-impacto/{seed_data['comedor_id']}")
     assert impacto_response.status_code == 200
     assert impacto_response.json()["co2_total"] == 2.5
+
+
+def test_crear_donacion(client: TestClient) -> None:
+    seed_response = client.post("/crear-datos-prueba")
+    assert seed_response.status_code == 200
+    seed_data = seed_response.json()
+
+    response = client.post(
+        "/donaciones",
+        json={
+            "puesto_id": seed_data["puesto_id"],
+            "descripcion": "5 kg de Manzanas",
+            "cantidad_kg": 5,
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["descripcion"] == "5 kg de Manzanas"
+    assert data["cantidad_kg"] == 5
+    assert data["estado"] == "Disponible"
 
 
 def test_no_reserva_donacion_inexistente(client: TestClient) -> None:
