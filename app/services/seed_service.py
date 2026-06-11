@@ -54,6 +54,7 @@ def crear_datos_prueba(db: Session) -> dict:
     nueva_donacion = DonacionLote(
         puesto_id=puesto.id,
         descripcion="10 kg de Plátanos maduros",
+        cantidad_kg=10,
         estado="Disponible",
     )
     db.add(nueva_donacion)

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, Column, DateTime, Float, ForeignKey, Integer
+from sqlalchemy import CheckConstraint, Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -21,6 +21,7 @@ class TrazabilidadValoracion(Base):
     fecha_recojo = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     huella_co2_ahorrada = Column(Float, nullable=False)
     puntaje_frescura = Column(Integer, nullable=False)
+    comentario = Column(String(500), nullable=True)
 
     reserva = relationship("Reserva", back_populates="trazabilidad")
     comedor = relationship("Comedor", back_populates="trazabilidades")
