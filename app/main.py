@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="API SQL - Red de Alimentos Compartidos", lifespan=lifespan)
+    app = FastAPI(title="FoodLinks API", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
