@@ -9,7 +9,7 @@ router = APIRouter(tags=["health"])
 
 @router.get("/", response_model=HomeOut)
 def home():
-    return {"mensaje": "API Red de Alimentos funcionando"}
+    return {"mensaje": "FoodLinks API funcionando"}
 
 
 @router.get("/health", response_model=HealthOut)
