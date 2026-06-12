@@ -18,6 +18,7 @@ logger = logging.getLogger("uvicorn.error")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
     # 1. Intentar correr migraciones de Alembic de forma segura
     try:
         logger.info("Iniciando migraciones de Alembic...")
@@ -51,7 +52,7 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
         logger.info("Sesión de base de datos cerrada en lifespan.")
-
+    """
     yield
 
 
