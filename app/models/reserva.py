@@ -12,7 +12,7 @@ class Reserva(Base):
     __tablename__ = "reservas"
     __table_args__ = (
         CheckConstraint(
-            "estado IN ('Pendiente de Recojo', 'Completada', 'Cancelada')",
+            "estado IN ('Pendiente de Recojo', 'Completada', 'Cancelada', 'Rechazado')",
             name="ck_reservas_estado",
         ),
     )
@@ -22,6 +22,7 @@ class Reserva(Base):
     donacion_id = Column(Integer, ForeignKey("donaciones_lotes.id"), nullable=False)
     fecha_reserva = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     estado = Column(String(32), default="Pendiente de Recojo", nullable=False)
+    codigo_verificacion = Column(String, nullable=True)
 
     comedor = relationship("Comedor", back_populates="reservas")
     donacion = relationship("DonacionLote", back_populates="reservas")
