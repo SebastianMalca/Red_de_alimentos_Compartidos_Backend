@@ -10,9 +10,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=LoginResponse)
+@router.post("/ingresar", response_model=LoginResponse)
 def login_endpoint(body: LoginRequest, db: Session = Depends(get_db)):
     return login(body.email, body.password, db)
 
 @router.post("/registro", response_model=RegisterResponse, status_code=201)
+@router.post("/register", response_model=RegisterResponse, status_code=201)
 def register_endpoint(body: RegisterRequest, db: Session = Depends(get_db)):
     return register(body.nombre_completo, body.email, body.password, body.rol, db)
