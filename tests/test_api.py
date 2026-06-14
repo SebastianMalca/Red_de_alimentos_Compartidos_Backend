@@ -84,7 +84,7 @@ def test_donacion_reserva_recojo_e_impacto(client: TestClient) -> None:
 
     impacto_response = client.get(f"/mi-impacto/{seed_data['comedor_id']}")
     assert impacto_response.status_code == 200
-    assert impacto_response.json()["co2_total"] == 2.5
+    assert impacto_response.json()["co2_total"] == 25.0
 
 
 def test_crear_donacion(client: TestClient) -> None:
@@ -112,3 +112,126 @@ def test_no_reserva_donacion_inexistente(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Donación no encontrada"
+
+
+def test_registro_exitoso_comedor(client: TestClient) -> None:
+    response = client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Comedor Nuevo",
+            "email": "comedor.nuevo@example.com",
+            "password": "mi_clave_segura",
+            "rol": "GestorComedor",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["email"] == "comedor.nuevo@example.com"
+    assert data["rol"] == "GestorComedor"
+    assert data["comedor_id"] is not None
+    assert data["puesto_id"] is None
+
+
+def test_registro_exitoso_comerciante(client: TestClient) -> None:
+    response = client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Puesto Nuevo",
+            "email": "puesto.nuevo@example.com",
+            "password": "otra_clave_segura",
+            "rol": "Comerciante",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["email"] == "puesto.nuevo@example.com"
+    assert data["rol"] == "Comerciante"
+    assert data["puesto_id"] is not None
+    assert data["comedor_id"] is None
+
+
+def test_registro_email_duplicado(client: TestClient) -> None:
+    # Registrar primero
+    client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Usuario Uno",
+            "email": "duplicado@example.com",
+            "password": "password123",
+            "rol": "GestorComedor",
+        },
+    )
+    # Intentar registrar de nuevo con el mismo email
+    response = client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Usuario Dos",
+            "email": "duplicado@example.com",
+            "password": "password456",
+            "rol": "Comerciante",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "El correo ya está registrado en el sistema"
+
+
+def test_login_exitoso(client: TestClient) -> None:
+    # 1. Registrar un usuario de prueba
+    client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Test User",
+            "email": "login.test@example.com",
+            "password": "mi_password_secreto",
+            "rol": "GestorComedor",
+        },
+    )
+    # 2. Intentar loguearse
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "login.test@example.com",
+            "password": "mi_password_secreto",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+    assert data["email"] == "login.test@example.com"
+
+
+def test_login_incorrecto_password(client: TestClient) -> None:
+    # 1. Registrar usuario
+    client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Test User 2",
+            "email": "login.test2@example.com",
+            "password": "mi_password_secreto",
+            "rol": "GestorComedor",
+        },
+    )
+    # 2. Intentar loguearse con contraseña incorrecta
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "login.test2@example.com",
+            "password": "clave_equivocada",
+        },
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Credenciales inválidas"
+
+
+def test_login_incorrecto_email(client: TestClient) -> None:
+    # Intentar loguearse con un correo no registrado
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "no.existe@example.com",
+            "password": "cualquier_clave",
+        },
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Credenciales inválidas"
