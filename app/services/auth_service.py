@@ -1,14 +1,17 @@
 from fastapi import HTTPException, status
-from passlib.hash import bcrypt
+from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Comedor, PuestoMercado, Usuario
 
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
 def login(email: str, password: str, db: Session) -> dict:
     usuario = db.query(Usuario).filter(Usuario.email == email).first()
-    if not usuario or not bcrypt.verify(password, usuario.password_hash):
+    if not usuario or not pwd_context.verify(password, usuario.password_hash):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
     comedor_id = None
@@ -40,12 +43,12 @@ def register(nombre_completo: str, email: str, password: str, rol: str, db: Sess
 
     existe = db.query(Usuario).filter(Usuario.email == email).first()
     if existe:
-        raise HTTPException(status_code=409, detail="El correo ya está registrado")
+        raise HTTPException(status_code=400, detail="El correo ya está registrado en el sistema")
 
     usuario = Usuario(
         nombre_completo=nombre_completo,
         email=email,
-        password_hash=bcrypt.hash(password),
+        password_hash=pwd_context.hash(password),
         rol=rol,
     )
     db.add(usuario)

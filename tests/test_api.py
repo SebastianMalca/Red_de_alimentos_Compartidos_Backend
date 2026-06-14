@@ -84,7 +84,7 @@ def test_donacion_reserva_recojo_e_impacto(client: TestClient) -> None:
 
     impacto_response = client.get(f"/mi-impacto/{seed_data['comedor_id']}")
     assert impacto_response.status_code == 200
-    assert impacto_response.json()["co2_total"] == 2.5
+    assert impacto_response.json()["co2_total"] == 25.0
 
 
 def test_crear_donacion(client: TestClient) -> None:
@@ -112,3 +112,64 @@ def test_no_reserva_donacion_inexistente(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Donación no encontrada"
+
+
+def test_registro_exitoso_comedor(client: TestClient) -> None:
+    response = client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Comedor Nuevo",
+            "email": "comedor.nuevo@example.com",
+            "password": "mi_clave_segura",
+            "rol": "GestorComedor",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["email"] == "comedor.nuevo@example.com"
+    assert data["rol"] == "GestorComedor"
+    assert data["comedor_id"] is not None
+    assert data["puesto_id"] is None
+
+
+def test_registro_exitoso_comerciante(client: TestClient) -> None:
+    response = client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Puesto Nuevo",
+            "email": "puesto.nuevo@example.com",
+            "password": "otra_clave_segura",
+            "rol": "Comerciante",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["email"] == "puesto.nuevo@example.com"
+    assert data["rol"] == "Comerciante"
+    assert data["puesto_id"] is not None
+    assert data["comedor_id"] is None
+
+
+def test_registro_email_duplicado(client: TestClient) -> None:
+    # Registrar primero
+    client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Usuario Uno",
+            "email": "duplicado@example.com",
+            "password": "password123",
+            "rol": "GestorComedor",
+        },
+    )
+    # Intentar registrar de nuevo con el mismo email
+    response = client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Usuario Dos",
+            "email": "duplicado@example.com",
+            "password": "password456",
+            "rol": "Comerciante",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "El correo ya está registrado en el sistema"

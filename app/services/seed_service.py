@@ -1,7 +1,7 @@
-from passlib.hash import bcrypt
 from sqlalchemy.orm import Session
 
 from app.models import Comedor, DonacionLote, PuestoMercado, Usuario
+from app.services.auth_service import pwd_context
 
 
 def crear_datos_prueba(db: Session) -> dict:
@@ -10,7 +10,7 @@ def crear_datos_prueba(db: Session) -> dict:
         usuario_comedor = Usuario(
             nombre_completo="Gestor Comedor Demo",
             email="comedor.demo@redalimentos.local",
-            password_hash=bcrypt.hash("demo123"),
+            password_hash=pwd_context.hash("demo123"),
             rol="GestorComedor",
         )
         db.add(usuario_comedor)
@@ -34,7 +34,7 @@ def crear_datos_prueba(db: Session) -> dict:
         usuario_puesto = Usuario(
             nombre_completo="Comerciante Demo",
             email="puesto.demo@redalimentos.local",
-            password_hash=bcrypt.hash("demo123"),
+            password_hash=pwd_context.hash("demo123"),
             rol="Comerciante",
         )
         db.add(usuario_puesto)
