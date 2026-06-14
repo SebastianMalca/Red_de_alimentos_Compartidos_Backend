@@ -1,12 +1,26 @@
+from datetime import datetime, timedelta, timezone
+import jwt
 from fastapi import HTTPException, status
 from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models import Comedor, PuestoMercado, Usuario
 
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+    settings = get_settings()
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.jwt_algorithm)
+    return encoded_jwt
 
 
 def login(email: str, password: str, db: Session) -> dict:
@@ -27,7 +41,15 @@ def login(email: str, password: str, db: Session) -> dict:
         if puesto:
             puesto_id = puesto.id
 
+    settings = get_settings()
+    access_token = create_access_token(
+        data={"sub": usuario.email, "usuario_id": usuario.id, "rol": usuario.rol},
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
+    )
+
     return {
+        "access_token": access_token,
+        "token_type": "bearer",
         "usuario_id": usuario.id,
         "nombre_completo": usuario.nombre_completo,
         "email": usuario.email,

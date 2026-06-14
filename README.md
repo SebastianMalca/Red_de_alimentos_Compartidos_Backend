@@ -151,3 +151,35 @@ app/
 alembic/      Migraciones de base de datos
 tests/        Pruebas de API
 ```
+
+## Instrucciones para el equipo
+
+1. **Crear entorno virtual**:
+   ```bash
+   python -m venv venv
+   ```
+
+2. **Activar entorno**:
+   - **Windows**:
+     ```bash
+     venv\Scripts\activate
+     ```
+   - **Mac/Linux**:
+     ```bash
+     source venv/bin/activate
+     ```
+
+3. **Instalar dependencias**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Migrar base de datos**:
+   ```bash
+   alembic upgrade head
+   ```
+
+5. **Iniciar servidor**:
+   ```bash
+   uvicorn main:app --reload
+   ```

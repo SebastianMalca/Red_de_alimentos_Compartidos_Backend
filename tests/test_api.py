@@ -173,3 +173,65 @@ def test_registro_email_duplicado(client: TestClient) -> None:
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "El correo ya está registrado en el sistema"
+
+
+def test_login_exitoso(client: TestClient) -> None:
+    # 1. Registrar un usuario de prueba
+    client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Test User",
+            "email": "login.test@example.com",
+            "password": "mi_password_secreto",
+            "rol": "GestorComedor",
+        },
+    )
+    # 2. Intentar loguearse
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "login.test@example.com",
+            "password": "mi_password_secreto",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+    assert data["email"] == "login.test@example.com"
+
+
+def test_login_incorrecto_password(client: TestClient) -> None:
+    # 1. Registrar usuario
+    client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Test User 2",
+            "email": "login.test2@example.com",
+            "password": "mi_password_secreto",
+            "rol": "GestorComedor",
+        },
+    )
+    # 2. Intentar loguearse con contraseña incorrecta
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "login.test2@example.com",
+            "password": "clave_equivocada",
+        },
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Credenciales inválidas"
+
+
+def test_login_incorrecto_email(client: TestClient) -> None:
+    # Intentar loguearse con un correo no registrado
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "no.existe@example.com",
+            "password": "cualquier_clave",
+        },
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Credenciales inválidas"
