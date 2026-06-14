@@ -6,7 +6,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.db.session import SessionLocal
 from app.routers import auth, donaciones, health, impacto, reservas, seed
 from app.services.seed_service import crear_datos_prueba
 import logging

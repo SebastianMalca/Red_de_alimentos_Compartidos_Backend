@@ -1,14 +1,12 @@
 from datetime import datetime, timedelta, timezone
+import bcrypt
 import jwt
 from fastapi import HTTPException, status
-from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models import Comedor, PuestoMercado, Usuario
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -25,7 +23,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 def login(email: str, password: str, db: Session) -> dict:
     usuario = db.query(Usuario).filter(Usuario.email == email).first()
-    if not usuario or not pwd_context.verify(password, usuario.password_hash):
+    if not usuario or not bcrypt.checkpw(password.encode("utf-8"), usuario.password_hash.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
     comedor_id = None
@@ -70,7 +68,7 @@ def register(nombre_completo: str, email: str, password: str, rol: str, db: Sess
     usuario = Usuario(
         nombre_completo=nombre_completo,
         email=email,
-        password_hash=pwd_context.hash(password),
+        password_hash=bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8"),
         rol=rol,
     )
     db.add(usuario)
