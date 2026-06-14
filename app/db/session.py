@@ -11,10 +11,15 @@ settings = get_settings()
 
 
 def _create_engine() -> Engine:
-    return create_engine(
-        settings.database_url,
+    database_url = settings.database_url
+
+    engine = create_engine(
+        database_url,
+        pool_size=1,
+        max_overflow=0,
         pool_pre_ping=True,
     )
+    return engine
 
 
 engine = _create_engine()
