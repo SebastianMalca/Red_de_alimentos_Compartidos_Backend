@@ -18,7 +18,7 @@ logger = logging.getLogger("uvicorn.error")
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="FoodLinks API", lifespan=lifespan)
+    app = FastAPI(title="FoodLinks API")
 
     app.add_middleware(
         CORSMiddleware,
