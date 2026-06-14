@@ -7,7 +7,10 @@ class Settings:
 
     def __init__(self) -> None:
         self.env = os.getenv("ENV", "development")
-        self.database_url = os.getenv("DATABASE_URL", "sqlite:///./red_alimentos.db")
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            raise ValueError("DATABASE_URL environment variable is required")
+        self.database_url = database_url
         self.cors_origins = self._parse_csv(os.getenv("CORS_ORIGINS", "*"))
         self.port = int(os.getenv("PORT", "8000"))
         self.seed_endpoint_enabled = self._parse_bool(
