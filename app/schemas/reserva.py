@@ -17,3 +17,12 @@ class ConfirmarRecojoResponse(BaseModel):
     impacto: str
     puntaje_asignado: int
     comentario: str | None = None
+
+
+class ValidarReservaInput(BaseModel):
+    codigo_verificacion: str
+
+
+class ValidarReservaResponse(BaseModel):
+    valido: bool
+    mensaje: str

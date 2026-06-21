@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -103,3 +105,29 @@ def confirmar_recojo(id_reserva: int, puntaje_frescura: int, comentario: str, db
         "puntaje_asignado": puntaje_frescura,
         "comentario": comentario,
     }
+
+
+def validar_reserva(id_reserva: int, codigo: str, db: Session) -> dict:
+    """Verifica que el código recibido (PIN o QR) coincida con el
+    ``codigo_verificacion`` almacenado en la reserva indicada."""
+
+    reserva = db.query(Reserva).filter(Reserva.id == id_reserva).first()
+    if not reserva:
+        raise HTTPException(status_code=404, detail="Reserva no encontrada")
+
+    if not reserva.codigo_verificacion:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta reserva no tiene un código de verificación asignado",
+        )
+
+    # Comparación en tiempo constante para evitar ataques de timing
+    es_valido = secrets.compare_digest(
+        reserva.codigo_verificacion.strip(),
+        codigo.strip(),
+    )
+
+    if es_valido:
+        return {"valido": True, "mensaje": "Código válido. Reserva verificada correctamente."}
+
+    return {"valido": False, "mensaje": "Código incorrecto. La verificación falló."}

@@ -2,8 +2,19 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.reserva import ConfirmarRecojoResponse, ReservaPendienteOut, ReservaResponse
-from app.services.reservas_service import confirmar_recojo, reservar_donacion, ver_reservas_pendientes
+from app.schemas.reserva import (
+    ConfirmarRecojoResponse,
+    ReservaPendienteOut,
+    ReservaResponse,
+    ValidarReservaInput,
+    ValidarReservaResponse,
+)
+from app.services.reservas_service import (
+    confirmar_recojo,
+    reservar_donacion,
+    validar_reserva,
+    ver_reservas_pendientes,
+)
 
 
 router = APIRouter(tags=["reservas"])
@@ -27,3 +38,14 @@ def confirmar(
     db: Session = Depends(get_db),
 ):
     return confirmar_recojo(id_reserva, puntaje_frescura, comentario, db)
+
+
+@router.post("/reservas/{id}/validar", response_model=ValidarReservaResponse)
+def validar(
+    id: int,
+    payload: ValidarReservaInput,
+    db: Session = Depends(get_db),
+):
+    """Verifica si el PIN o código QR recibido coincide con el
+    ``codigo_verificacion`` almacenado para la reserva indicada."""
+    return validar_reserva(id, payload.codigo_verificacion, db)
