@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.reserva import (
+    ConfirmarEstadoInput,
+    ConfirmarEstadoResponse,
     ConfirmarRecojoResponse,
     ReservaPendienteOut,
     ReservaResponse,
@@ -10,6 +12,7 @@ from app.schemas.reserva import (
     ValidarReservaResponse,
 )
 from app.services.reservas_service import (
+    confirmar_estado_reserva,
     confirmar_recojo,
     reservar_donacion,
     validar_reserva,
@@ -49,3 +52,24 @@ def validar(
     """Verifica si el PIN o código QR recibido coincide con el
     ``codigo_verificacion`` almacenado para la reserva indicada."""
     return validar_reserva(id, payload.codigo_verificacion, db)
+
+
+@router.post("/reservas/{id}/confirmar", response_model=ConfirmarEstadoResponse)
+def confirmar_estado(
+    id: int,
+    payload: ConfirmarEstadoInput,
+    db: Session = Depends(get_db),
+):
+    """Confirma el estado definitivo de una reserva tras la validación presencial.
+
+    - La reserva **debe** tener estado ``"Validado"``.
+    - ``resultado = "Entregado"`` → calcula CO₂ (kg × 2.5) y lo registra.
+    - ``resultado = "Rechazado" | "Cancelado"`` → cambia estado sin CO₂.
+    """
+    return confirmar_estado_reserva(
+        id,
+        payload.resultado,
+        payload.puntaje_frescura,
+        payload.comentario,
+        db,
+    )

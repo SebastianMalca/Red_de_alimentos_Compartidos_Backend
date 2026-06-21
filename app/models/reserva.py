@@ -12,7 +12,7 @@ class Reserva(Base):
     __tablename__ = "reservas"
     __table_args__ = (
         CheckConstraint(
-            "estado IN ('Pendiente de Recojo', 'Completada', 'Cancelada', 'Rechazado')",
+            "estado IN ('Pendiente de Recojo', 'Validado', 'Completada', 'Cancelada', 'Rechazado')",
             name="ck_reservas_estado",
         ),
     )
