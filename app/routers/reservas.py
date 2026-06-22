@@ -18,6 +18,7 @@ from app.services.reservas_service import (
     validar_reserva,
     ver_reservas_pendientes,
 )
+from app.services.expiracion_service import expirar_reservas_vencidas
 
 
 router = APIRouter(tags=["reservas"])
@@ -73,3 +74,23 @@ def confirmar_estado(
         payload.comentario,
         db,
     )
+
+
+@router.post(
+    "/admin/expirar-reservas",
+    summary="Expirar reservas vencidas (manual)",
+    tags=["admin"],
+)
+def expirar_reservas(
+    db: Session = Depends(get_db),
+):
+    """Dispara manualmente la expiración de reservas cuyo ``tiempo_limite``
+    ya haya vencido.
+
+    - Reservas en ``"Pendiente de Recojo"`` → ``"Cancelada"``.
+    - Donación asociada → ``"Disponible"``.
+
+    Normalmente esta lógica se ejecuta en segundo plano cada 60 s.
+    Este endpoint permite forzarla desde Swagger o herramientas de admin.
+    """
+    return expirar_reservas_vencidas(db)
