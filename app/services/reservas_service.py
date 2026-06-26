@@ -11,6 +11,7 @@ ESTADO_DISPONIBLE = "Disponible"
 ESTADO_RESERVADO = "Reservado"
 ESTADO_RECOGIDO = "Recogido"
 ESTADO_PENDIENTE_RECOJO = "Pendiente de Recojo"
+ESTADO_VALIDADO = "Validado"
 ESTADO_COMPLETADA = "Completada"
 
 
@@ -60,7 +61,10 @@ def reservar_donacion(id_donacion: int, comedor_id: int, db: Session) -> dict:
 def ver_reservas_pendientes(comedor_id: int, db: Session) -> list[dict]:
     reservas = (
         db.query(Reserva)
-        .filter(Reserva.comedor_id == comedor_id, Reserva.estado == ESTADO_PENDIENTE_RECOJO)
+        .filter(
+            Reserva.comedor_id == comedor_id,
+            Reserva.estado.in_([ESTADO_PENDIENTE_RECOJO, ESTADO_VALIDADO]),
+        )
         .all()
     )
 
@@ -68,6 +72,7 @@ def ver_reservas_pendientes(comedor_id: int, db: Session) -> list[dict]:
         {
             "id_reserva": reserva.id,
             "descripcion": reserva.donacion.descripcion if reserva.donacion else "Lote Reservado",
+            "estado": reserva.estado,
             "codigo_verificacion": reserva.codigo_verificacion or "",
         }
         for reserva in reservas
@@ -200,12 +205,9 @@ def validar_reserva(id_reserva: int, codigo: str, db: Session) -> dict:
 # Confirmar estado definitivo de una reserva (entrega / rechazo / cancelación)
 # ---------------------------------------------------------------------------
 
-ESTADO_VALIDADO = "Validado"
-ESTADO_ENTREGADO = "Completada"   # estado final en BD cuando se entrega
-
 # Mapa de resultado → estado final en la reserva
 _MAPA_ESTADO_FINAL = {
-    "Entregado": ESTADO_ENTREGADO,
+    "Entregado": ESTADO_COMPLETADA,
     "Rechazado": "Rechazado",
     "Cancelado": "Cancelada",
 }
@@ -237,12 +239,23 @@ def confirmar_estado_reserva(
     if not reserva:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
 
-    # ── 1. Exigir validación presencial completada ──────────────────────────
-    if reserva.estado != ESTADO_VALIDADO:
+    # ── 1. Verificar estado permitido ─────────────────────────────────────
+    # "Cancelado" puede aplicarse tanto desde "Pendiente de Recojo" como desde
+    # "Validado". Las otras acciones (Entregado, Rechazado) exigen "Validado".
+    estados_validos_para_cancelar = {ESTADO_PENDIENTE_RECOJO, ESTADO_VALIDADO}
+    if resultado == "Cancelado" and reserva.estado not in estados_validos_para_cancelar:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"La reserva debe estar en estado 'Validado' para poder confirmarla. "
+                f"Solo se puede cancelar una reserva en estado 'Pendiente de Recojo' o 'Validado'. "
+                f"Estado actual: '{reserva.estado}'"
+            ),
+        )
+    elif resultado != "Cancelado" and reserva.estado != ESTADO_VALIDADO:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"La reserva debe estar en estado 'Validado' para confirmar '{resultado}'. "
                 f"Estado actual: '{reserva.estado}'"
             ),
         )

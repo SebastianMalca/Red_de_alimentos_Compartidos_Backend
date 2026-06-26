@@ -13,6 +13,7 @@ class ReservaResponse(BaseModel):
 class ReservaPendienteOut(BaseModel):
     id_reserva: int
     descripcion: str
+    estado: str
     codigo_verificacion: str
 
 
