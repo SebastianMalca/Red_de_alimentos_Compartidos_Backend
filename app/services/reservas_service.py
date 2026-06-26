@@ -32,7 +32,14 @@ def reservar_donacion(id_donacion: int, comedor_id: int, db: Session) -> dict:
         db.rollback()
         raise HTTPException(status_code=400, detail="La donación ya no está disponible")
 
-    nueva_reserva = Reserva(comedor_id=comedor_id, donacion_id=id_donacion)
+    # Generar PIN numérico de 6 dígitos (criptográficamente seguro)
+    codigo = f"{secrets.randbelow(1_000_000):06d}"
+
+    nueva_reserva = Reserva(
+        comedor_id=comedor_id,
+        donacion_id=id_donacion,
+        codigo_verificacion=codigo,
+    )
     db.add(nueva_reserva)
 
     try:
@@ -46,6 +53,7 @@ def reservar_donacion(id_donacion: int, comedor_id: int, db: Session) -> dict:
         "status": "éxito",
         "mensaje": f"Donación {id_donacion} reservada exitosamente por el comedor {comedor_id}",
         "id_reserva": nueva_reserva.id,
+        "codigo_verificacion": nueva_reserva.codigo_verificacion,
     }
 
 
@@ -60,9 +68,64 @@ def ver_reservas_pendientes(comedor_id: int, db: Session) -> list[dict]:
         {
             "id_reserva": reserva.id,
             "descripcion": reserva.donacion.descripcion if reserva.donacion else "Lote Reservado",
+            "codigo_verificacion": reserva.codigo_verificacion or "",
         }
         for reserva in reservas
     ]
+
+
+def cancelar_reserva(id_reserva: int, comedor_id: int, db: Session) -> dict:
+    """Cancela una reserva activa perteneciente al comedor indicado.
+
+    Reglas de negocio:
+    - La reserva debe existir y pertenecer a ``comedor_id``. Si no, 404.
+    - Solo se pueden cancelar reservas en estado ``"Pendiente de Recojo"``.
+      Cualquier otro estado devuelve 400.
+    - Al cancelar: reserva → ``"Cancelada"``, donación → ``"Disponible"``.
+    """
+    reserva = (
+        db.query(Reserva)
+        .filter(Reserva.id == id_reserva, Reserva.comedor_id == comedor_id)
+        .first()
+    )
+    if not reserva:
+        raise HTTPException(
+            status_code=404,
+            detail="Reserva no encontrada o no pertenece a este comedor",
+        )
+
+    if reserva.estado != ESTADO_PENDIENTE_RECOJO:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Solo se pueden cancelar reservas en estado 'Pendiente de Recojo'. "
+                f"Estado actual: '{reserva.estado}'"
+            ),
+        )
+
+    donacion = db.query(DonacionLote).filter(DonacionLote.id == reserva.donacion_id).first()
+    if not donacion:
+        raise HTTPException(status_code=404, detail="Donación asociada no encontrada")
+
+    reserva.estado = "Cancelada"
+    donacion.estado = ESTADO_DISPONIBLE
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=400, detail="No se pudo cancelar la reserva"
+        ) from exc
+
+    return {
+        "mensaje": f"Reserva {id_reserva} cancelada correctamente.",
+        "id_reserva": id_reserva,
+        "estado_reserva": "Cancelada",
+        "donacion_id": donacion.id,
+        "estado_donacion": ESTADO_DISPONIBLE,
+    }
+
 
 
 def confirmar_recojo(id_reserva: int, puntaje_frescura: int, comentario: str, db: Session) -> dict:

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.reserva import (
+    CancelarReservaResponse,
     ConfirmarEstadoInput,
     ConfirmarEstadoResponse,
     ConfirmarRecojoResponse,
@@ -12,6 +13,7 @@ from app.schemas.reserva import (
     ValidarReservaResponse,
 )
 from app.services.reservas_service import (
+    cancelar_reserva,
     confirmar_estado_reserva,
     confirmar_recojo,
     reservar_donacion,
@@ -74,6 +76,20 @@ def confirmar_estado(
         payload.comentario,
         db,
     )
+
+
+@router.delete("/reservas/{id}/cancelar", response_model=CancelarReservaResponse)
+def cancelar(
+    id: int,
+    comedor_id: int,
+    db: Session = Depends(get_db),
+):
+    """Cancela una reserva en estado 'Pendiente de Recojo'.
+
+    - La reserva debe pertenecer al ``comedor_id`` indicado.
+    - La donación asociada regresa automáticamente a ``"Disponible"``.
+    """
+    return cancelar_reserva(id, comedor_id, db)
 
 
 @router.post(

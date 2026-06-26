@@ -7,11 +7,13 @@ class ReservaResponse(BaseModel):
     status: str
     mensaje: str
     id_reserva: int
+    codigo_verificacion: str
 
 
 class ReservaPendienteOut(BaseModel):
     id_reserva: int
     descripcion: str
+    codigo_verificacion: str
 
 
 class ConfirmarRecojoResponse(BaseModel):
@@ -28,6 +30,14 @@ class ValidarReservaInput(BaseModel):
 class ValidarReservaResponse(BaseModel):
     valido: bool
     mensaje: str
+
+
+class CancelarReservaResponse(BaseModel):
+    mensaje: str
+    id_reserva: int
+    estado_reserva: str
+    donacion_id: int
+    estado_donacion: str
 
 
 # ── Confirmar entrega / rechazo / cancelación ──────────────────────────────

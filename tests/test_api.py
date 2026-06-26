@@ -70,9 +70,11 @@ def test_donacion_reserva_recojo_e_impacto(client: TestClient) -> None:
 
     pendientes_response = client.get(f"/reservas-pendientes/{seed_data['comedor_id']}")
     assert pendientes_response.status_code == 200
-    assert pendientes_response.json() == [
-        {"id_reserva": id_reserva, "descripcion": "10 kg de Plátanos maduros"}
-    ]
+    pendientes = pendientes_response.json()
+    assert len(pendientes) == 1
+    assert pendientes[0]["id_reserva"] == id_reserva
+    assert pendientes[0]["descripcion"] == "10 kg de Plátanos maduros"
+    assert pendientes[0]["codigo_verificacion"] != ""
 
     confirmar_response = client.post(
         f"/confirmar-recojo/{id_reserva}",
@@ -235,3 +237,186 @@ def test_login_incorrecto_email(client: TestClient) -> None:
     )
     assert response.status_code == 401
     assert response.json()["detail"] == "Credenciales inválidas"
+
+
+# ---------------------------------------------------------------------------
+# Tests de código de verificación (PIN) — criterios de aceptación del doc
+# docs/requerimiento_codigo_verificacion.md
+# ---------------------------------------------------------------------------
+
+def _crear_reserva(client: TestClient) -> tuple[dict, int]:
+    """Helper: crea datos de prueba, reserva la donación y devuelve
+    (json de la respuesta, id_comedor)."""
+    seed = client.post("/crear-datos-prueba").json()
+    resp = client.post(
+        f"/reservar/{seed['donacion_id']}",
+        params={"comedor_id": seed["comedor_id"]},
+    )
+    assert resp.status_code == 200
+    return resp.json(), seed["comedor_id"]
+
+
+def test_pin_generado_al_reservar(client: TestClient) -> None:
+    """Criterio 1: POST /reservar devuelve codigo_verificacion de 6 dígitos."""
+    data, _ = _crear_reserva(client)
+
+    assert "codigo_verificacion" in data, "El campo codigo_verificacion debe estar en la respuesta"
+    pin = data["codigo_verificacion"]
+    assert len(pin) == 6, f"El PIN debe tener 6 dígitos, tiene {len(pin)}"
+    assert pin.isdigit(), f"El PIN debe ser numérico, se recibió: {pin!r}"
+
+
+def test_validar_pin_correcto(client: TestClient) -> None:
+    """Criterio 3: POST /reservas/{id}/validar con el PIN correcto → valido=True."""
+    data, _ = _crear_reserva(client)
+    id_reserva = data["id_reserva"]
+    pin = data["codigo_verificacion"]
+
+    resp = client.post(
+        f"/reservas/{id_reserva}/validar",
+        json={"codigo_verificacion": pin},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["valido"] is True
+
+
+def test_validar_pin_incorrecto(client: TestClient) -> None:
+    """Criterio 3 (negativo): PIN erróneo → valido=False."""
+    data, _ = _crear_reserva(client)
+    id_reserva = data["id_reserva"]
+
+    resp = client.post(
+        f"/reservas/{id_reserva}/validar",
+        json={"codigo_verificacion": "000000"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["valido"] is False
+
+
+def test_pendientes_incluye_pin(client: TestClient) -> None:
+    """Criterio 4: GET /reservas-pendientes incluye codigo_verificacion en cada ítem."""
+    data, comedor_id = _crear_reserva(client)
+
+    resp = client.get(f"/reservas-pendientes/{comedor_id}")
+    assert resp.status_code == 200
+    items = resp.json()
+    assert len(items) == 1
+    item = items[0]
+    assert "codigo_verificacion" in item, "Las reservas pendientes deben exponer el PIN"
+    assert item["codigo_verificacion"] == data["codigo_verificacion"]
+
+
+# ---------------------------------------------------------------------------
+# Tests de cancelación de reserva
+# ---------------------------------------------------------------------------
+
+def test_cancelar_reserva_exitoso(client: TestClient) -> None:
+    """Cancelar una reserva en 'Pendiente de Recojo' la pasa a 'Cancelada'
+    y devuelve la donación a 'Disponible'."""
+    data, comedor_id = _crear_reserva(client)
+    id_reserva = data["id_reserva"]
+
+    resp = client.delete(
+        f"/reservas/{id_reserva}/cancelar",
+        params={"comedor_id": comedor_id},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["estado_reserva"] == "Cancelada"
+    assert body["estado_donacion"] == "Disponible"
+    assert body["id_reserva"] == id_reserva
+
+    # La reserva ya no debe aparecer en pendientes
+    pendientes = client.get(f"/reservas-pendientes/{comedor_id}").json()
+    assert pendientes == []
+
+    # La donación debe aparecer de nuevo como disponible
+    donaciones = client.get("/donaciones").json()
+    assert any(d["estado"] == "Disponible" for d in donaciones)
+
+
+def test_cancelar_reserva_ya_completada(client: TestClient) -> None:
+    """Intentar cancelar una reserva que no está en 'Pendiente de Recojo' → 400."""
+    seed = client.post("/crear-datos-prueba").json()
+    reservar_resp = client.post(
+        f"/reservar/{seed['donacion_id']}",
+        params={"comedor_id": seed["comedor_id"]},
+    )
+    id_reserva = reservar_resp.json()["id_reserva"]
+
+    # Completar la reserva primero
+    client.post(
+        f"/confirmar-recojo/{id_reserva}",
+        params={"puntaje_frescura": 4, "comentario": ""},
+    )
+
+    # Ahora intentar cancelarla
+    resp = client.delete(
+        f"/reservas/{id_reserva}/cancelar",
+        params={"comedor_id": seed["comedor_id"]},
+    )
+    assert resp.status_code == 400
+    assert "Pendiente de Recojo" in resp.json()["detail"]
+
+
+def test_cancelar_reserva_comedor_incorrecto(client: TestClient) -> None:
+    """Intentar cancelar una reserva de otro comedor → 404."""
+    data, _ = _crear_reserva(client)
+    id_reserva = data["id_reserva"]
+
+    resp = client.delete(
+        f"/reservas/{id_reserva}/cancelar",
+        params={"comedor_id": 9999},
+    )
+    assert resp.status_code == 404
+
+
+def test_cancelar_reserva_inexistente(client: TestClient) -> None:
+    """Intentar cancelar una reserva que no existe → 404."""
+    resp = client.delete(
+        "/reservas/9999/cancelar",
+        params={"comedor_id": 1},
+    )
+    assert resp.status_code == 404
+
+
+def test_cancelar_reserva_donacion_vuelve_disponible_para_otro_comedor(
+    client: TestClient,
+) -> None:
+    """Tras cancelar, otro comedor puede reservar la misma donación."""
+    seed = client.post("/crear-datos-prueba").json()
+    reservar_resp = client.post(
+        f"/reservar/{seed['donacion_id']}",
+        params={"comedor_id": seed["comedor_id"]},
+    )
+    id_reserva = reservar_resp.json()["id_reserva"]
+
+    # Cancelar
+    client.delete(
+        f"/reservas/{id_reserva}/cancelar",
+        params={"comedor_id": seed["comedor_id"]},
+    )
+
+    # Registrar un segundo comedor
+    client.post(
+        "/auth/registro",
+        json={
+            "nombre_completo": "Segundo Comedor",
+            "email": "segundo@example.com",
+            "password": "pass1234",
+            "rol": "GestorComedor",
+        },
+    )
+    login = client.post(
+        "/auth/login",
+        json={"email": "segundo@example.com", "password": "pass1234"},
+    ).json()
+    segundo_comedor_id = login["comedor_id"]
+
+    # El segundo comedor puede reservar la misma donación
+    nueva_reserva = client.post(
+        f"/reservar/{seed['donacion_id']}",
+        params={"comedor_id": segundo_comedor_id},
+    )
+    assert nueva_reserva.status_code == 200
+    assert nueva_reserva.json()["id_reserva"] != id_reserva
