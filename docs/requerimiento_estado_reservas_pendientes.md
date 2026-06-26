@@ -7,6 +7,32 @@ este campo (flag `USAR_MOCK_ESTADO` en `src/api/reservas.ts`) porque el backend 
 
 ## Cambios solicitados
 
+### 0. (BLOQUEANTE) Migración: actualizar el CHECK constraint `ck_reservas_estado`
+El modelo `app/models/reserva.py` ya declara los 5 estados
+(`'Pendiente de Recojo', 'Validado', 'Completada', 'Cancelada', 'Rechazado'`),
+pero la migración inicial `alembic/versions/20260604_0001_initial_schema.py` creó el
+constraint en la BD solo con `('Pendiente de Recojo', 'Completada', 'Cancelada')`.
+**Ninguna migración posterior lo actualizó**, así que la base real (Supabase) rechaza
+`'Validado'` y `'Rechazado'`.
+
+Esto rompe el propio endpoint `POST /reservas/{id}/confirmar`: no se puede dejar una
+reserva en `'Validado'` (precondición) ni marcarla `'Rechazado'` sin violar el constraint.
+
+Crear una migración de Alembic que reemplace el constraint:
+
+```python
+def upgrade():
+    op.drop_constraint("ck_reservas_estado", "reservas", type_="check")
+    op.create_check_constraint(
+        "ck_reservas_estado",
+        "reservas",
+        "estado IN ('Pendiente de Recojo', 'Validado', 'Completada', 'Cancelada', 'Rechazado')",
+    )
+```
+
+(En PostgreSQL/Supabase esto equivale a `ALTER TABLE reservas DROP CONSTRAINT ck_reservas_estado;`
+seguido de `ADD CONSTRAINT ... CHECK (...)`.) Es prerrequisito de todo lo demás.
+
 ### 1. Exponer `estado` en `ReservaPendienteOut`
 `app/schemas/reserva.py` — añadir el campo `estado: str`:
 
