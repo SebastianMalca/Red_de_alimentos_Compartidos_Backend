@@ -196,6 +196,20 @@ def validar_reserva(id_reserva: int, codigo: str, db: Session) -> dict:
     )
 
     if es_valido:
+        # La validación presencial transiciona la reserva a "Validado", que es la
+        # precondición para que el comedor pueda confirmar la entrega/rechazo.
+        # Guard: solo transicionar desde "Pendiente de Recojo" para que re-validar
+        # una reserva ya validada/completada sea idempotente.
+        if reserva.estado == ESTADO_PENDIENTE_RECOJO:
+            reserva.estado = ESTADO_VALIDADO
+            try:
+                db.commit()
+            except IntegrityError as exc:
+                db.rollback()
+                raise HTTPException(
+                    status_code=400,
+                    detail="No se pudo actualizar el estado de la reserva",
+                ) from exc
         return {"valido": True, "mensaje": "Código válido. Reserva verificada correctamente."}
 
     return {"valido": False, "mensaje": "Código incorrecto. La verificación falló."}
