@@ -8,6 +8,7 @@ class DonacionCreate(BaseModel):
     descripcion: str
     cantidad_kg: float
     tiempo_limite: datetime | None = None
+    foto_base64: str | None = None
 
 
 class DonacionOut(BaseModel):
