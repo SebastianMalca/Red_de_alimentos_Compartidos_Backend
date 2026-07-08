@@ -56,6 +56,59 @@ def validar_entrega_service(donacion_id: int, codigo: str, db: Session) -> dict:
     return {"valido": True, "mensaje": "Código válido. Reserva verificada correctamente."}
 
 
+def actualizar_estado_donacion(donacion_id: int, nuevo_estado: str, db: Session) -> dict:
+    VALIDOS = {"Disponible", "Reservado", "Recogido", "Rechazado", "Cancelado"}
+    if nuevo_estado not in VALIDOS:
+        raise HTTPException(status_code=422, detail=f"Estado inválido: {nuevo_estado}")
+
+    donacion = db.query(DonacionLote).filter(DonacionLote.id == donacion_id).first()
+    if not donacion:
+        raise HTTPException(status_code=404, detail="Donación no encontrada")
+
+    if nuevo_estado == "Cancelado" and donacion.estado in ("Reservado", "Validado"):
+        reserva = (
+            db.query(Reserva)
+            .filter(
+                Reserva.donacion_id == donacion_id,
+                Reserva.estado.in_(["Pendiente de Recojo", "Validado"]),
+            )
+            .first()
+        )
+        if reserva:
+            reserva.estado = "Cancelada"
+
+    donacion.estado = nuevo_estado
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="No se pudo actualizar el estado") from exc
+
+    return {"mensaje": f"Donación {donacion_id} actualizada a '{nuevo_estado}'", "id": donacion_id, "estado": nuevo_estado}
+
+
+def eliminar_donacion(donacion_id: int, db: Session) -> dict:
+    donacion = db.query(DonacionLote).filter(DonacionLote.id == donacion_id).first()
+    if not donacion:
+        raise HTTPException(status_code=404, detail="Donación no encontrada")
+
+    from app.models import TrazabilidadValoracion
+
+    reservas = db.query(Reserva).filter(Reserva.donacion_id == donacion_id).all()
+    for r in reservas:
+        db.query(TrazabilidadValoracion).filter(TrazabilidadValoracion.reserva_id == r.id).delete()
+    db.query(Reserva).filter(Reserva.donacion_id == donacion_id).delete()
+    db.delete(donacion)
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="No se pudo eliminar la donación") from exc
+
+    return {"mensaje": f"Donación {donacion_id} eliminada permanentemente", "id": donacion_id}
+
+
 def crear_donacion(puesto_id: int, descripcion: str, cantidad_kg: float, db: Session) -> DonacionLote:
     puesto = db.query(PuestoMercado).filter(PuestoMercado.id == puesto_id).first()
     if not puesto:

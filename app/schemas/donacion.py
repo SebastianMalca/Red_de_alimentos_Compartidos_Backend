@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -15,6 +17,15 @@ class DonacionOut(BaseModel):
     cantidad_kg: float
     estado: str
     puesto_id: int
+
+
+class DonacionUpdateEstado(BaseModel):
+    estado: str
+
+
+class DonacionEliminadaResponse(BaseModel):
+    mensaje: str
+    id: int
 
 
 class DatosPruebaOut(BaseModel):

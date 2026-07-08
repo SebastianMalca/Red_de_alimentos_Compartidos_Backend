@@ -2,10 +2,17 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.donacion import DonacionCreate, DonacionOut
+from app.schemas.donacion import (
+    DonacionCreate,
+    DonacionEliminadaResponse,
+    DonacionOut,
+    DonacionUpdateEstado,
+)
 from app.schemas.reserva import ValidarReservaInput, ValidarReservaResponse
 from app.services.donaciones_service import (
+    actualizar_estado_donacion,
     crear_donacion,
+    eliminar_donacion,
     listar_donaciones_disponibles,
     listar_donaciones_por_puesto,
     validar_entrega_service,
@@ -34,3 +41,13 @@ def listar_mis_donaciones(puesto_id: int, estados: str | None = None, db: Sessio
 @router.post("/{id}/validar-entrega", response_model=ValidarReservaResponse)
 def validar_entrega(id: int, payload: ValidarReservaInput, db: Session = Depends(get_db)):
     return validar_entrega_service(id, payload.codigo_verificacion, db)
+
+
+@router.put("/{id}/estado")
+def actualizar_estado(id: int, payload: DonacionUpdateEstado, db: Session = Depends(get_db)):
+    return actualizar_estado_donacion(id, payload.estado, db)
+
+
+@router.delete("/{id}", response_model=DonacionEliminadaResponse)
+def eliminar(id: int, db: Session = Depends(get_db)):
+    return eliminar_donacion(id, db)
