@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -49,6 +49,8 @@ async def crear(request: Request, db: Session = Depends(get_db)):
         imagen_file = form.get("imagen")
         if imagen_file and hasattr(imagen_file, "read"):
             foto_url = await subir_imagen(imagen_file)
+            if foto_url is None:
+                raise HTTPException(502, "No se pudo subir la imagen a Supabase Storage")
 
         return crear_donacion(puesto_id, descripcion, cantidad_kg, db, tiempo_limite, foto_url)
 
