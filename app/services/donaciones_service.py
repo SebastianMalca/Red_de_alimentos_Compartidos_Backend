@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import secrets
 
 from fastapi import HTTPException
@@ -109,7 +111,14 @@ def eliminar_donacion(donacion_id: int, db: Session) -> dict:
     return {"mensaje": f"Donación {donacion_id} eliminada permanentemente", "id": donacion_id}
 
 
-def crear_donacion(puesto_id: int, descripcion: str, cantidad_kg: float, db: Session) -> DonacionLote:
+def crear_donacion(
+    puesto_id: int,
+    descripcion: str,
+    cantidad_kg: float,
+    db: Session,
+    tiempo_limite: datetime | None = None,
+    foto_url: str | None = None,
+) -> DonacionLote:
     puesto = db.query(PuestoMercado).filter(PuestoMercado.id == puesto_id).first()
     if not puesto:
         raise HTTPException(status_code=404, detail="Puesto de mercado no encontrado")
@@ -119,6 +128,8 @@ def crear_donacion(puesto_id: int, descripcion: str, cantidad_kg: float, db: Ses
         descripcion=descripcion,
         cantidad_kg=cantidad_kg,
         estado="Disponible",
+        tiempo_limite=tiempo_limite,
+        foto_url=foto_url,
     )
     db.add(donacion)
 

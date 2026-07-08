@@ -7,6 +7,7 @@ class DonacionCreate(BaseModel):
     puesto_id: int
     descripcion: str
     cantidad_kg: float
+    tiempo_limite: datetime | None = None
 
 
 class DonacionOut(BaseModel):
@@ -17,6 +18,8 @@ class DonacionOut(BaseModel):
     cantidad_kg: float
     estado: str
     puesto_id: int
+    foto_url: str | None = None
+    tiempo_limite: datetime | None = None
 
 
 class DonacionUpdateEstado(BaseModel):
