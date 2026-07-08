@@ -24,5 +24,6 @@ def crear(body: DonacionCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/mis-donaciones/{puesto_id}", response_model=list[DonacionOut])
-def listar_mis_donaciones(puesto_id: int, db: Session = Depends(get_db)):
-    return listar_donaciones_por_puesto(puesto_id, db)
+def listar_mis_donaciones(puesto_id: int, estados: str | None = None, db: Session = Depends(get_db)):
+    lista_estados = estados.split(",") if estados else None
+    return listar_donaciones_por_puesto(puesto_id, db, lista_estados)

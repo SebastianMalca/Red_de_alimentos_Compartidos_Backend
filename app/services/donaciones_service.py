@@ -9,13 +9,11 @@ def listar_donaciones_disponibles(db: Session) -> list[DonacionLote]:
     return db.query(DonacionLote).filter(DonacionLote.estado == "Disponible").all()
 
 
-def listar_donaciones_por_puesto(puesto_id: int, db: Session) -> list[DonacionLote]:
-    return (
-        db.query(DonacionLote)
-        .filter(DonacionLote.puesto_id == puesto_id)
-        .order_by(DonacionLote.id.desc())
-        .all()
-    )
+def listar_donaciones_por_puesto(puesto_id: int, db: Session, estados: list[str] | None = None) -> list[DonacionLote]:
+    query = db.query(DonacionLote).filter(DonacionLote.puesto_id == puesto_id)
+    if estados:
+        query = query.filter(DonacionLote.estado.in_(estados))
+    return query.order_by(DonacionLote.id.desc()).all()
 
 
 def crear_donacion(puesto_id: int, descripcion: str, cantidad_kg: float, db: Session) -> DonacionLote:
