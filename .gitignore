@@ -4,6 +4,7 @@ venv/
 # Ignorar archivos temporales de Python
 __pycache__/
 *.pyc
+*.pyo
 
 # Ignorar bases de datos locales
 *.db
@@ -12,3 +13,21 @@ __pycache__/
 # Ignorar variables de entorno o llaves de seguridad
 .env
 firebase-key.json
+
+# Coverage y testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Build artifacts de Python
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Cache de herramientas
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log

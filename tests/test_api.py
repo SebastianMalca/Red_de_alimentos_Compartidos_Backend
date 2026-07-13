@@ -32,22 +32,26 @@ def test_db() -> Generator[tuple[Session, dict], None, None]:
     db = TestingSessionLocal()
     seed_result = crear_datos_prueba(db)
 
-    yield db, seed_result
-
-    db.close()
-    Base.metadata.drop_all(bind=engine)
+    try:
+        yield db, seed_result
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
 
 
 @pytest.fixture(scope="function")
 def client(test_db: tuple[Session, dict]) -> Generator[TestClient, None, None]:
     db, _ = test_db
     app = create_app()
+    TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db.get_bind())
 
     def override_get_db() -> Generator[Session, None, None]:
+        session = TestSessionLocal()
         try:
-            yield db
+            yield session
         finally:
-            pass
+            session.close()
 
     app.dependency_overrides[get_db] = override_get_db
 
