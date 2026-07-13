@@ -29,5 +29,6 @@ jobs:
       env:
         SUPABASE_URL: "https://mock.supabase.co"
         SUPABASE_KEY: "mock-key-123"
+        DATABASE_URL: "postgresql://usuario:password@localhost:5432/bd_prueba"
       run: |
         python -m pytest --cov=app --cov-report=term-missing
