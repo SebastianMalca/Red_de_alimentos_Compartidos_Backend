@@ -9,12 +9,13 @@ from sqlalchemy.pool import StaticPool
 from app.db.session import get_db
 from app.main import create_app
 from app.models import Base
+from app.services.seed_service import crear_datos_prueba
 
 
-@pytest.fixture()
-def client() -> Generator[TestClient, None, None]:
+@pytest.fixture(scope="function")
+def test_db() -> Generator[tuple[Session, dict], None, None]:
     engine = create_engine(
-        "sqlite://",
+        "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
@@ -27,14 +28,26 @@ def client() -> Generator[TestClient, None, None]:
 
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
+
+    db = TestingSessionLocal()
+    seed_result = crear_datos_prueba(db)
+
+    yield db, seed_result
+
+    db.close()
+    Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="function")
+def client(test_db: tuple[Session, dict]) -> Generator[TestClient, None, None]:
+    db, _ = test_db
     app = create_app()
 
     def override_get_db() -> Generator[Session, None, None]:
-        db = TestingSessionLocal()
         try:
             yield db
         finally:
-            db.close()
+            pass
 
     app.dependency_overrides[get_db] = override_get_db
 
@@ -42,7 +55,12 @@ def client() -> Generator[TestClient, None, None]:
         yield test_client
 
     app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="function")
+def seed_data(test_db: tuple[Session, dict]) -> dict:
+    _, data = test_db
+    return data
 
 
 def test_health(client: TestClient) -> None:
@@ -52,11 +70,7 @@ def test_health(client: TestClient) -> None:
     assert response.json()["status"] == "ok"
 
 
-def test_donacion_reserva_recojo_e_impacto(client: TestClient) -> None:
-    seed_response = client.post("/crear-datos-prueba")
-    assert seed_response.status_code == 200
-    seed_data = seed_response.json()
-
+def test_donacion_reserva_recojo_e_impacto(client: TestClient, seed_data: dict) -> None:
     donaciones_response = client.get("/donaciones")
     assert donaciones_response.status_code == 200
     donaciones = donaciones_response.json()
@@ -89,11 +103,7 @@ def test_donacion_reserva_recojo_e_impacto(client: TestClient) -> None:
     assert impacto_response.json()["co2_total"] == 25.0
 
 
-def test_crear_donacion(client: TestClient) -> None:
-    seed_response = client.post("/crear-datos-prueba")
-    assert seed_response.status_code == 200
-    seed_data = seed_response.json()
-
+def test_crear_donacion(client: TestClient, seed_data: dict) -> None:
     response = client.post(
         "/donaciones",
         json={
@@ -153,7 +163,6 @@ def test_registro_exitoso_comerciante(client: TestClient) -> None:
 
 
 def test_registro_email_duplicado(client: TestClient) -> None:
-    # Registrar primero
     client.post(
         "/auth/registro",
         json={
@@ -163,7 +172,6 @@ def test_registro_email_duplicado(client: TestClient) -> None:
             "rol": "GestorComedor",
         },
     )
-    # Intentar registrar de nuevo con el mismo email
     response = client.post(
         "/auth/registro",
         json={
@@ -178,7 +186,6 @@ def test_registro_email_duplicado(client: TestClient) -> None:
 
 
 def test_login_exitoso(client: TestClient) -> None:
-    # 1. Registrar un usuario de prueba
     client.post(
         "/auth/registro",
         json={
@@ -188,7 +195,6 @@ def test_login_exitoso(client: TestClient) -> None:
             "rol": "GestorComedor",
         },
     )
-    # 2. Intentar loguearse
     response = client.post(
         "/auth/login",
         json={
@@ -204,7 +210,6 @@ def test_login_exitoso(client: TestClient) -> None:
 
 
 def test_login_incorrecto_password(client: TestClient) -> None:
-    # 1. Registrar usuario
     client.post(
         "/auth/registro",
         json={
@@ -214,7 +219,6 @@ def test_login_incorrecto_password(client: TestClient) -> None:
             "rol": "GestorComedor",
         },
     )
-    # 2. Intentar loguearse con contraseña incorrecta
     response = client.post(
         "/auth/login",
         json={
@@ -227,7 +231,6 @@ def test_login_incorrecto_password(client: TestClient) -> None:
 
 
 def test_login_incorrecto_email(client: TestClient) -> None:
-    # Intentar loguearse con un correo no registrado
     response = client.post(
         "/auth/login",
         json={
@@ -244,21 +247,20 @@ def test_login_incorrecto_email(client: TestClient) -> None:
 # docs/requerimiento_codigo_verificacion.md
 # ---------------------------------------------------------------------------
 
-def _crear_reserva(client: TestClient) -> tuple[dict, int]:
-    """Helper: crea datos de prueba, reserva la donación y devuelve
+def _crear_reserva(client: TestClient, seed_data: dict) -> tuple[dict, int]:
+    """Helper: reserva la donación pre-sembrada y devuelve
     (json de la respuesta, id_comedor)."""
-    seed = client.post("/crear-datos-prueba").json()
     resp = client.post(
-        f"/reservar/{seed['donacion_id']}",
-        params={"comedor_id": seed["comedor_id"]},
+        f"/reservar/{seed_data['donacion_id']}",
+        params={"comedor_id": seed_data["comedor_id"]},
     )
     assert resp.status_code == 200
-    return resp.json(), seed["comedor_id"]
+    return resp.json(), seed_data["comedor_id"]
 
 
-def test_pin_generado_al_reservar(client: TestClient) -> None:
+def test_pin_generado_al_reservar(client: TestClient, seed_data: dict) -> None:
     """Criterio 1: POST /reservar devuelve codigo_verificacion de 6 dígitos."""
-    data, _ = _crear_reserva(client)
+    data, _ = _crear_reserva(client, seed_data)
 
     assert "codigo_verificacion" in data, "El campo codigo_verificacion debe estar en la respuesta"
     pin = data["codigo_verificacion"]
@@ -266,9 +268,9 @@ def test_pin_generado_al_reservar(client: TestClient) -> None:
     assert pin.isdigit(), f"El PIN debe ser numérico, se recibió: {pin!r}"
 
 
-def test_validar_pin_correcto(client: TestClient) -> None:
+def test_validar_pin_correcto(client: TestClient, seed_data: dict) -> None:
     """Criterio 3: POST /reservas/{id}/validar con el PIN correcto → valido=True."""
-    data, _ = _crear_reserva(client)
+    data, _ = _crear_reserva(client, seed_data)
     id_reserva = data["id_reserva"]
     pin = data["codigo_verificacion"]
 
@@ -280,9 +282,9 @@ def test_validar_pin_correcto(client: TestClient) -> None:
     assert resp.json()["valido"] is True
 
 
-def test_validar_pin_incorrecto(client: TestClient) -> None:
+def test_validar_pin_incorrecto(client: TestClient, seed_data: dict) -> None:
     """Criterio 3 (negativo): PIN erróneo → valido=False."""
-    data, _ = _crear_reserva(client)
+    data, _ = _crear_reserva(client, seed_data)
     id_reserva = data["id_reserva"]
 
     resp = client.post(
@@ -293,9 +295,9 @@ def test_validar_pin_incorrecto(client: TestClient) -> None:
     assert resp.json()["valido"] is False
 
 
-def test_pendientes_incluye_pin(client: TestClient) -> None:
+def test_pendientes_incluye_pin(client: TestClient, seed_data: dict) -> None:
     """Criterio 4: GET /reservas-pendientes incluye codigo_verificacion en cada ítem."""
-    data, comedor_id = _crear_reserva(client)
+    data, comedor_id = _crear_reserva(client, seed_data)
 
     resp = client.get(f"/reservas-pendientes/{comedor_id}")
     assert resp.status_code == 200
@@ -310,10 +312,10 @@ def test_pendientes_incluye_pin(client: TestClient) -> None:
 # Tests de cancelación de reserva
 # ---------------------------------------------------------------------------
 
-def test_cancelar_reserva_exitoso(client: TestClient) -> None:
+def test_cancelar_reserva_exitoso(client: TestClient, seed_data: dict) -> None:
     """Cancelar una reserva en 'Pendiente de Recojo' la pasa a 'Cancelada'
     y devuelve la donación a 'Disponible'."""
-    data, comedor_id = _crear_reserva(client)
+    data, comedor_id = _crear_reserva(client, seed_data)
     id_reserva = data["id_reserva"]
 
     resp = client.delete(
@@ -326,42 +328,37 @@ def test_cancelar_reserva_exitoso(client: TestClient) -> None:
     assert body["estado_donacion"] == "Disponible"
     assert body["id_reserva"] == id_reserva
 
-    # La reserva ya no debe aparecer en pendientes
     pendientes = client.get(f"/reservas-pendientes/{comedor_id}").json()
     assert pendientes == []
 
-    # La donación debe aparecer de nuevo como disponible
     donaciones = client.get("/donaciones").json()
     assert any(d["estado"] == "Disponible" for d in donaciones)
 
 
-def test_cancelar_reserva_ya_completada(client: TestClient) -> None:
+def test_cancelar_reserva_ya_completada(client: TestClient, seed_data: dict) -> None:
     """Intentar cancelar una reserva que no está en 'Pendiente de Recojo' → 400."""
-    seed = client.post("/crear-datos-prueba").json()
     reservar_resp = client.post(
-        f"/reservar/{seed['donacion_id']}",
-        params={"comedor_id": seed["comedor_id"]},
+        f"/reservar/{seed_data['donacion_id']}",
+        params={"comedor_id": seed_data["comedor_id"]},
     )
     id_reserva = reservar_resp.json()["id_reserva"]
 
-    # Completar la reserva primero
     client.post(
         f"/confirmar-recojo/{id_reserva}",
         params={"puntaje_frescura": 4, "comentario": ""},
     )
 
-    # Ahora intentar cancelarla
     resp = client.delete(
         f"/reservas/{id_reserva}/cancelar",
-        params={"comedor_id": seed["comedor_id"]},
+        params={"comedor_id": seed_data["comedor_id"]},
     )
     assert resp.status_code == 400
     assert "Pendiente de Recojo" in resp.json()["detail"]
 
 
-def test_cancelar_reserva_comedor_incorrecto(client: TestClient) -> None:
+def test_cancelar_reserva_comedor_incorrecto(client: TestClient, seed_data: dict) -> None:
     """Intentar cancelar una reserva de otro comedor → 404."""
-    data, _ = _crear_reserva(client)
+    data, _ = _crear_reserva(client, seed_data)
     id_reserva = data["id_reserva"]
 
     resp = client.delete(
@@ -382,22 +379,20 @@ def test_cancelar_reserva_inexistente(client: TestClient) -> None:
 
 def test_cancelar_reserva_donacion_vuelve_disponible_para_otro_comedor(
     client: TestClient,
+    seed_data: dict,
 ) -> None:
     """Tras cancelar, otro comedor puede reservar la misma donación."""
-    seed = client.post("/crear-datos-prueba").json()
     reservar_resp = client.post(
-        f"/reservar/{seed['donacion_id']}",
-        params={"comedor_id": seed["comedor_id"]},
+        f"/reservar/{seed_data['donacion_id']}",
+        params={"comedor_id": seed_data["comedor_id"]},
     )
     id_reserva = reservar_resp.json()["id_reserva"]
 
-    # Cancelar
     client.delete(
         f"/reservas/{id_reserva}/cancelar",
-        params={"comedor_id": seed["comedor_id"]},
+        params={"comedor_id": seed_data["comedor_id"]},
     )
 
-    # Registrar un segundo comedor
     client.post(
         "/auth/registro",
         json={
@@ -413,10 +408,59 @@ def test_cancelar_reserva_donacion_vuelve_disponible_para_otro_comedor(
     ).json()
     segundo_comedor_id = login["comedor_id"]
 
-    # El segundo comedor puede reservar la misma donación
     nueva_reserva = client.post(
-        f"/reservar/{seed['donacion_id']}",
+        f"/reservar/{seed_data['donacion_id']}",
         params={"comedor_id": segundo_comedor_id},
     )
     assert nueva_reserva.status_code == 200
     assert nueva_reserva.json()["id_reserva"] != id_reserva
+
+def test_flujo_e2e_completo_api(client: TestClient, seed_data: dict) -> None:
+    # 1. Login Comerciante (credenciales del seed)
+    res_login_comerciante = client.post(
+        "/auth/login",
+        json={"email": "puesto.demo@redalimentos.local", "password": "demo123"},
+    )
+    assert res_login_comerciante.status_code == 200
+    token_comerciante = res_login_comerciante.json()["access_token"]
+    headers_comerciante = {"Authorization": f"Bearer {token_comerciante}"}
+
+    # 2. Publicar Donación
+    datos_lote = {
+        "puesto_id": seed_data["puesto_id"],
+        "descripcion": "10 kg de Manzanas",
+        "cantidad_kg": 10.0,
+    }
+    res_crear_lote = client.post("/donaciones", json=datos_lote)
+    assert res_crear_lote.status_code == 201
+    id_lote = res_crear_lote.json()["id"]
+
+    # 3. Login Comedor (credenciales del seed)
+    res_login_comedor = client.post(
+        "/auth/login",
+        json={"email": "comedor.demo@redalimentos.local", "password": "demo123"},
+    )
+    assert res_login_comedor.status_code == 200
+    token_comedor = res_login_comedor.json()["access_token"]
+    headers_comedor = {"Authorization": f"Bearer {token_comedor}"}
+
+    # 4. Reservar el Lote
+    res_reserva = client.post(
+        f"/reservar/{id_lote}",
+        params={"comedor_id": seed_data["comedor_id"]},
+    )
+    assert res_reserva.status_code == 200
+    id_reserva = res_reserva.json()["id_reserva"]
+
+    # 5. Confirmar Recojo (puntaje_frescura y comentario son query params)
+    res_confirmar = client.post(
+        f"/confirmar-recojo/{id_reserva}",
+        params={"puntaje_frescura": 5, "comentario": "Excelente estado"},
+    )
+    assert res_confirmar.status_code == 200
+    assert res_confirmar.json()["puntaje_asignado"] == 5
+
+    # 6. Verificar Impacto acumulado del comedor
+    res_impacto = client.get(f"/mi-impacto/{seed_data['comedor_id']}")
+    assert res_impacto.status_code == 200
+    assert res_impacto.json()["co2_total"] == 25.0
