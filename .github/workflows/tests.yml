@@ -26,5 +26,8 @@ jobs:
         pip install pytest pytest-cov
 
     - name: Ejecutar pruebas unitarias y medir cobertura
+      env:
+        SUPABASE_URL: "https://mock.supabase.co"
+        SUPABASE_KEY: "mock-key-123"
       run: |
         python -m pytest --cov=app --cov-report=term-missing
