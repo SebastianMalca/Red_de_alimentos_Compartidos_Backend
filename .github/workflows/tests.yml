@@ -27,4 +27,4 @@ jobs:
 
     - name: Ejecutar pruebas unitarias y medir cobertura
       run: |
-        pytest --cov=app --cov-report=term-missing
+        python -m pytest --cov=app --cov-report=term-missing
