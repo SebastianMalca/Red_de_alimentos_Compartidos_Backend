@@ -1,4 +1,11 @@
+import os
 from collections.abc import Generator
+from datetime import datetime, timedelta, timezone
+
+# Set environment variables for tests before importing the app
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("SUPABASE_URL", "https://dummy.supabase.co")
+os.environ.setdefault("SUPABASE_KEY", "dummykey")
 
 import pytest
 from fastapi.testclient import TestClient
@@ -468,3 +475,33 @@ def test_flujo_e2e_completo_api(client: TestClient, seed_data: dict) -> None:
     res_impacto = client.get(f"/mi-impacto/{seed_data['comedor_id']}")
     assert res_impacto.status_code == 200
     assert res_impacto.json()["co2_total"] == 25.0
+
+
+@pytest.mark.parametrize("invalid_cantidad", [0, -5.0])
+def test_crear_donacion_cantidad_invalida(client: TestClient, seed_data: dict, invalid_cantidad: float) -> None:
+    response = client.post(
+        "/donaciones",
+        json={
+            "puesto_id": seed_data["puesto_id"],
+            "descripcion": "Donacion de prueba invalida",
+            "cantidad_kg": invalid_cantidad,
+        },
+    )
+    assert response.status_code in (400, 422)
+
+
+@pytest.mark.parametrize("invalid_tiempo", [
+    (datetime.now() - timedelta(days=1)).isoformat(),
+    (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
+])
+def test_crear_donacion_tiempo_limite_pasado(client: TestClient, seed_data: dict, invalid_tiempo: str) -> None:
+    response = client.post(
+        "/donaciones",
+        json={
+            "puesto_id": seed_data["puesto_id"],
+            "descripcion": "Donacion con tiempo expirado",
+            "cantidad_kg": 10.0,
+            "tiempo_limite": invalid_tiempo,
+        },
+    )
+    assert response.status_code == 400
