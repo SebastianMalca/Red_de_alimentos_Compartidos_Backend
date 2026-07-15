@@ -123,6 +123,14 @@ def crear_donacion(
     if not puesto:
         raise HTTPException(status_code=404, detail="Puesto de mercado no encontrado")
 
+    if cantidad_kg <= 0:
+        raise HTTPException(status_code=400, detail="La cantidad en kg debe ser mayor que cero")
+
+    if tiempo_limite:
+        now = datetime.now(tiempo_limite.tzinfo) if tiempo_limite.tzinfo else datetime.now()
+        if tiempo_limite < now:
+            raise HTTPException(status_code=400, detail="El tiempo límite no puede estar en el pasado")
+
     donacion = DonacionLote(
         puesto_id=puesto_id,
         descripcion=descripcion,
