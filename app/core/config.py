@@ -25,6 +25,7 @@ class Settings:
         self.secret_key = os.getenv("JWT_SECRET", "295231562ef0184eefecb91b2c0acba069a1c6c9244b37dbabccdce7d3499064")
         self.jwt_algorithm = os.getenv("JWT_ALGORITHM", "HS256")
         self.access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+        self.google_client_id = os.getenv("GOOGLE_CLIENT_ID", "")
 
     @staticmethod
     def _parse_csv(value: str) -> list[str]:

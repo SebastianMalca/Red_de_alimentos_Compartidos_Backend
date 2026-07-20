@@ -42,3 +42,30 @@ class RegisterResponse(BaseModel):
     rol: str
     comedor_id: int | None = None
     puesto_id: int | None = None
+
+
+class GoogleAuthRequest(BaseModel):
+    id_token: str = Field(..., min_length=1, description="ID Token de Google Sign-In")
+    rol: str = Field(
+        "GestorComedor",
+        description="Rol a asignar si el usuario es nuevo (GestorComedor o Comerciante)",
+    )
+
+    @field_validator("rol")
+    @classmethod
+    def rol_valido(cls, v: str) -> str:
+        if v not in ("GestorComedor", "Comerciante"):
+            raise ValueError("Rol inválido. Debe ser GestorComedor o Comerciante")
+        return v
+
+
+class GoogleAuthResponse(BaseModel):
+    access_token: str
+    token_type: str
+    usuario_id: int
+    nombre_completo: str
+    email: str
+    rol: str
+    comedor_id: int | None = None
+    puesto_id: int | None = None
+    is_new_user: bool
