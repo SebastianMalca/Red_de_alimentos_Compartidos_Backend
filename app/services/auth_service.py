@@ -57,7 +57,16 @@ def login(email: str, password: str, db: Session) -> dict:
     }
 
 
-def register(nombre_completo: str, email: str, password: str, rol: str, db: Session) -> dict:
+def register(
+    nombre_completo: str,
+    email: str,
+    password: str,
+    rol: str,
+    direccion: str,
+    latitud: float,
+    longitud: float,
+    db: Session,
+) -> dict:
     if rol not in ("GestorComedor", "Comerciante"):
         raise HTTPException(status_code=422, detail="Rol inválido. Debe ser GestorComedor o Comerciante")
 
@@ -70,6 +79,8 @@ def register(nombre_completo: str, email: str, password: str, rol: str, db: Sess
         email=email,
         password_hash=bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8"),
         rol=rol,
+        latitud=latitud,
+        longitud=longitud,
     )
     db.add(usuario)
     db.flush()
@@ -81,6 +92,9 @@ def register(nombre_completo: str, email: str, password: str, rol: str, db: Sess
         comedor = Comedor(
             usuario_id=usuario.id,
             nombre_comedor=nombre_completo,
+            ubicacion_gps=direccion,
+            latitud=latitud,
+            longitud=longitud,
         )
         db.add(comedor)
         db.flush()
@@ -89,6 +103,9 @@ def register(nombre_completo: str, email: str, password: str, rol: str, db: Sess
         puesto = PuestoMercado(
             usuario_id=usuario.id,
             nombre_puesto=nombre_completo,
+            ubicacion_gps=direccion,
+            latitud=latitud,
+            longitud=longitud,
         )
         db.add(puesto)
         db.flush()

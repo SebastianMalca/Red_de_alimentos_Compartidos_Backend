@@ -17,4 +17,7 @@ def login_endpoint(body: LoginRequest, db: Session = Depends(get_db)):
 @router.post("/registro", response_model=RegisterResponse, status_code=201)
 @router.post("/register", response_model=RegisterResponse, status_code=201)
 def register_endpoint(body: RegisterRequest, db: Session = Depends(get_db)):
-    return register(body.nombre_completo, body.email, body.password, body.rol, db)
+    return register(
+        body.nombre_completo, body.email, body.password, body.rol,
+        body.direccion, body.latitud, body.longitud, db,
+    )

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class LoginRequest(BaseModel):
@@ -22,6 +22,17 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     rol: str
+    direccion: str = Field(..., min_length=1, max_length=500, description="Dirección física del usuario")
+    latitud: float = Field(..., ge=-90.0, le=90.0, description="Latitud GPS (-90 a 90)")
+    longitud: float = Field(..., ge=-180.0, le=180.0, description="Longitud GPS (-180 a 180)")
+
+    @field_validator("direccion")
+    @classmethod
+    def direccion_no_vacia(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("La dirección no puede estar vacía")
+        return v
 
 
 class RegisterResponse(BaseModel):
