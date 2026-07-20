@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, Integer, String
+from sqlalchemy import CheckConstraint, Column, Float, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -15,6 +15,8 @@ class Usuario(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     rol = Column(String(32), nullable=False)
+    latitud = Column(Float, nullable=True)
+    longitud = Column(Float, nullable=True)
 
     puesto_mercado = relationship("PuestoMercado", back_populates="usuario", uselist=False)
     comedor = relationship("Comedor", back_populates="usuario", uselist=False)

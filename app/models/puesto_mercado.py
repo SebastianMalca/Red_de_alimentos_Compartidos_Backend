@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Column, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -11,6 +11,8 @@ class PuestoMercado(Base):
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), unique=True, nullable=True)
     nombre_puesto = Column(String(255), nullable=False)
     ubicacion_gps = Column(String(255))
+    latitud = Column(Float, nullable=True)
+    longitud = Column(Float, nullable=True)
 
     usuario = relationship("Usuario", back_populates="puesto_mercado")
     donaciones = relationship("DonacionLote", back_populates="puesto")
