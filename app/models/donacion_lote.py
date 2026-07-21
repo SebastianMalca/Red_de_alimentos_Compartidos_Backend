@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, Float, ForeignKey, Integer, String, DateTime
+from sqlalchemy import CheckConstraint, Column, Float, ForeignKey, Integer, String, DateTime, Time
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -19,6 +19,9 @@ class DonacionLote(Base):
     cantidad_kg = Column(Float, nullable=False, default=0)
     estado = Column(String(32), default="Disponible", nullable=False)
     tiempo_limite = Column(DateTime(timezone=True), nullable=True)
+    hora_inicio = Column(Time, nullable=True)
+    hora_fin = Column(Time, nullable=True)
+    fecha_hora_caducidad = Column(DateTime(timezone=True), nullable=True)
     foto_url = Column(String, nullable=True)
 
     puesto = relationship("PuestoMercado", back_populates="donaciones")

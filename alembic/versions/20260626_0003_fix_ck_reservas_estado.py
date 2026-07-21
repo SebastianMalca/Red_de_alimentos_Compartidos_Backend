@@ -21,18 +21,18 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.drop_constraint("ck_reservas_estado", "reservas", type_="check")
-    op.create_check_constraint(
-        "ck_reservas_estado",
-        "reservas",
-        "estado IN ('Pendiente de Recojo', 'Validado', 'Completada', 'Cancelada', 'Rechazado')",
-    )
+    with op.batch_alter_table("reservas") as batch_op:
+        batch_op.drop_constraint("ck_reservas_estado", type_="check")
+        batch_op.create_check_constraint(
+            "ck_reservas_estado",
+            "estado IN ('Pendiente de Recojo', 'Validado', 'Completada', 'Cancelada', 'Rechazado')",
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint("ck_reservas_estado", "reservas", type_="check")
-    op.create_check_constraint(
-        "ck_reservas_estado",
-        "reservas",
-        "estado IN ('Pendiente de Recojo', 'Completada', 'Cancelada')",
-    )
+    with op.batch_alter_table("reservas") as batch_op:
+        batch_op.drop_constraint("ck_reservas_estado", type_="check")
+        batch_op.create_check_constraint(
+            "ck_reservas_estado",
+            "estado IN ('Pendiente de Recojo', 'Completada', 'Cancelada')",
+        )

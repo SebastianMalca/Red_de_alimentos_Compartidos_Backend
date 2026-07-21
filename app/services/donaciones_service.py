@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 
 import secrets
 
@@ -118,6 +118,9 @@ def crear_donacion(
     db: Session,
     tiempo_limite: datetime | None = None,
     foto_url: str | None = None,
+    hora_inicio: time | None = None,
+    hora_fin: time | None = None,
+    fecha_hora_caducidad: datetime | None = None,
 ) -> DonacionLote:
     puesto = db.query(PuestoMercado).filter(PuestoMercado.id == puesto_id).first()
     if not puesto:
@@ -138,6 +141,9 @@ def crear_donacion(
         estado="Disponible",
         tiempo_limite=tiempo_limite,
         foto_url=foto_url,
+        hora_inicio=hora_inicio,
+        hora_fin=hora_fin,
+        fecha_hora_caducidad=fecha_hora_caducidad,
     )
     db.add(donacion)
 
