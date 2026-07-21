@@ -39,7 +39,17 @@ def crear(body: DonacionCreate, db: Session = Depends(get_db)):
         if foto_url is None:
             raise HTTPException(502, "No se pudo subir la imagen a Supabase Storage")
 
-    return crear_donacion(body.puesto_id, body.descripcion, body.cantidad_kg, db, body.tiempo_limite, foto_url)
+    return crear_donacion(
+        body.puesto_id,
+        body.descripcion,
+        body.cantidad_kg,
+        db,
+        body.tiempo_limite,
+        foto_url,
+        body.hora_inicio,
+        body.hora_fin,
+        body.fecha_hora_caducidad
+    )
 
 
 @router.get("/mis-donaciones/{puesto_id}", response_model=list[DonacionOut])

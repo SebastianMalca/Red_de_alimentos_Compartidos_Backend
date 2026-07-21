@@ -22,85 +22,80 @@ from app.models import DonacionLote, Reserva
 logger = logging.getLogger(__name__)
 
 ESTADO_PENDIENTE_RECOJO = "Pendiente de Recojo"
-ESTADO_CANCELADA = "Cancelada"
+ESTADO_CANCELADA = "Cancelada"       # para reservas
+ESTADO_CANCELADO = "Cancelado"       # para donaciones
 ESTADO_DISPONIBLE = "Disponible"
 
 
-def expirar_reservas_vencidas(db: Session) -> dict:
-    """Expira en una sola transacción todas las reservas cuyo ``tiempo_limite``
-    haya vencido.
-
-    Returns:
-        dict con las claves ``expiradas`` (int) y ``detalle`` (list[dict]).
+def expirar_donaciones_y_reservas(db: Session) -> dict:
+    """Expira en una sola transacción:
+    1. Las reservas cuyo ``tiempo_limite`` haya vencido (la donación vuelve a Disponible).
+    2. Las donaciones cuya ``fecha_hora_caducidad`` haya vencido (se cancela la donación y su reserva si tiene).
     """
     ahora = datetime.now(timezone.utc)
+    detalle = []
 
-    # Buscar reservas activas cuya donación ya venció
-    reservas_vencidas: list[Reserva] = (
+    # 1. Expiración de reservas por tiempo de recojo vencido
+    reservas_vencidas = (
         db.query(Reserva)
         .join(DonacionLote, Reserva.donacion_id == DonacionLote.id)
         .filter(
             Reserva.estado == ESTADO_PENDIENTE_RECOJO,
-            DonacionLote.tiempo_limite != None,       # noqa: E711
+            DonacionLote.tiempo_limite != None,
             DonacionLote.tiempo_limite < ahora,
+            (DonacionLote.fecha_hora_caducidad >= ahora) | (DonacionLote.fecha_hora_caducidad == None)
         )
         .all()
     )
 
-    if not reservas_vencidas:
-        logger.debug("Expiración: no hay reservas vencidas en este ciclo.")
-        return {"expiradas": 0, "detalle": []}
-
-    detalle: list[dict] = []
-
     for reserva in reservas_vencidas:
-        donacion: DonacionLote = reserva.donacion  # ya cargado por el join
-
+        donacion = reserva.donacion
         reserva.estado = ESTADO_CANCELADA
         donacion.estado = ESTADO_DISPONIBLE
+        detalle.append({"tipo": "tiempo_limite", "reserva_id": reserva.id, "donacion_id": donacion.id})
+        logger.info("Reserva #%d expirada — donación #%d vuelve a 'Disponible'.", reserva.id, donacion.id)
 
-        detalle.append(
-            {
-                "reserva_id": reserva.id,
-                "donacion_id": donacion.id,
-                "tiempo_limite": donacion.tiempo_limite.isoformat(),
-            }
+    # 2. Expiración biológica de donaciones
+    donaciones_caducadas = (
+        db.query(DonacionLote)
+        .filter(
+            DonacionLote.estado.in_([ESTADO_DISPONIBLE, "Reservado"]),
+            DonacionLote.fecha_hora_caducidad != None,
+            DonacionLote.fecha_hora_caducidad < ahora,
         )
-        logger.info(
-            "Reserva #%d expirada — donación #%d vuelve a 'Disponible'.",
-            reserva.id,
-            donacion.id,
-        )
-
-    db.commit()
-    logger.info("Expiración completada: %d reserva(s) cancelada(s).", len(detalle))
-    return {"expiradas": len(detalle), "detalle": detalle}
-
-
-# ---------------------------------------------------------------------------
-# Tarea en segundo plano
-# ---------------------------------------------------------------------------
-
-async def tarea_expiracion_periodica(intervalo_segundos: int = 60) -> None:
-    """Corrutina que ejecuta :func:`expirar_reservas_vencidas` cada
-    ``intervalo_segundos`` segundos.
-
-    Debe iniciarse como tarea ``asyncio`` desde el ``lifespan`` de FastAPI.
-    """
-    import asyncio
-
-    logger.info(
-        "Tarea de expiración iniciada (intervalo: %ds).", intervalo_segundos
+        .all()
     )
 
-    while True:
-        await asyncio.sleep(intervalo_segundos)
-        SessionLocal = _get_session_local()
-        db: Session = SessionLocal()
-        try:
-            expirar_reservas_vencidas(db)
-        except Exception:
-            logger.exception("Error en la tarea de expiración de reservas.")
-            db.rollback()
-        finally:
-            db.close()
+    for donacion in donaciones_caducadas:
+        donacion.estado = ESTADO_CANCELADO
+        # Buscar reservas activas para cancelar
+        for reserva in donacion.reservas:
+            if reserva.estado == ESTADO_PENDIENTE_RECOJO:
+                reserva.estado = ESTADO_CANCELADA
+                detalle.append({"tipo": "caducidad_biologica", "reserva_id": reserva.id, "donacion_id": donacion.id})
+                logger.info("Reserva #%d cancelada por caducidad biológica de la donación #%d.", reserva.id, donacion.id)
+
+        detalle.append({"tipo": "caducidad_biologica", "donacion_id": donacion.id})
+        logger.info("Donación #%d cancelada por caducidad biológica.", donacion.id)
+
+    if detalle:
+        db.commit()
+        logger.info("Expiración completada: %d evento(s).", len(detalle))
+    else:
+        logger.debug("Expiración: no hay elementos vencidos en este ciclo.")
+
+    return {"eventos": len(detalle), "detalle": detalle}
+
+
+def run_expiration_task():
+    """Función síncrona para ser llamada por APScheduler."""
+    logger.info("Iniciando tarea de expiración programada por APScheduler...")
+    SessionLocal = _get_session_local()
+    db = SessionLocal()
+    try:
+        expirar_donaciones_y_reservas(db)
+    except Exception:
+        logger.exception("Error en la tarea de expiración.")
+        db.rollback()
+    finally:
+        db.close()

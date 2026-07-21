@@ -145,6 +145,9 @@ def test_registro_exitoso_comedor(client: TestClient) -> None:
             "email": "comedor.nuevo@example.com",
             "password": "mi_clave_segura",
             "rol": "GestorComedor",
+            "direccion": "Av. Principal 123",
+            "latitud": -12.046374,
+            "longitud": -77.042793,
         },
     )
     assert response.status_code == 201
@@ -163,6 +166,9 @@ def test_registro_exitoso_comerciante(client: TestClient) -> None:
             "email": "puesto.nuevo@example.com",
             "password": "otra_clave_segura",
             "rol": "Comerciante",
+            "direccion": "Mercado Central Puesto 15",
+            "latitud": -12.0520,
+            "longitud": -77.0300,
         },
     )
     assert response.status_code == 201
@@ -181,6 +187,9 @@ def test_registro_email_duplicado(client: TestClient) -> None:
             "email": "duplicado@example.com",
             "password": "password123",
             "rol": "GestorComedor",
+            "direccion": "Jr. Ficticio 456",
+            "latitud": -12.01,
+            "longitud": -77.01,
         },
     )
     response = client.post(
@@ -190,6 +199,9 @@ def test_registro_email_duplicado(client: TestClient) -> None:
             "email": "duplicado@example.com",
             "password": "password456",
             "rol": "Comerciante",
+            "direccion": "Jr. Ficticio 789",
+            "latitud": -12.02,
+            "longitud": -77.02,
         },
     )
     assert response.status_code == 400
@@ -204,6 +216,9 @@ def test_login_exitoso(client: TestClient) -> None:
             "email": "login.test@example.com",
             "password": "mi_password_secreto",
             "rol": "GestorComedor",
+            "direccion": "Av. Test Login 123",
+            "latitud": -12.03,
+            "longitud": -77.03,
         },
     )
     response = client.post(
@@ -228,6 +243,9 @@ def test_login_incorrecto_password(client: TestClient) -> None:
             "email": "login.test2@example.com",
             "password": "mi_password_secreto",
             "rol": "GestorComedor",
+            "direccion": "Av. Test Login 456",
+            "latitud": -12.04,
+            "longitud": -77.04,
         },
     )
     response = client.post(
@@ -411,6 +429,9 @@ def test_cancelar_reserva_donacion_vuelve_disponible_para_otro_comedor(
             "email": "segundo@example.com",
             "password": "pass1234",
             "rol": "GestorComedor",
+            "direccion": "Calle Falsa 123",
+            "latitud": -12.05,
+            "longitud": -77.05,
         },
     )
     login = client.post(
