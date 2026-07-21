@@ -1,8 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
 
-from alembic import command as alembic_command
-from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

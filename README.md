@@ -81,8 +81,8 @@ El sistema maneja dos roles de usuario:
 | `GestorComedor` | Encargado de comedor que reserva donaciones y gestiona recojos |
 
 - **Registro**: `POST /auth/register` — crea un usuario y automáticamente genera un perfil de `comedor` o `puesto_mercado` según el rol.
-- **Inicio de sesión**: `POST /auth/login` — verifica credenciales con bcrypt y devuelve el perfil del usuario junto con su `comedor_id` o `puesto_id`.
-- No se utilizan tokens JWT; la sesión se maneja desde el cliente usando los IDs devueltos.
+- **Inicio de sesión**: `POST /auth/login` — verifica credenciales con bcrypt y devuelve un token JWT junto con el perfil del usuario.
+- Las peticiones autenticadas deben incluir el header `Authorization: Bearer <token>`.
 
 ## Modelos de Datos
 

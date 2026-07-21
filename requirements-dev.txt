@@ -1,5 +1,5 @@
 -r requirements.txt
-httpx2
+httpx
 pytest==9.0.1
 pytest-cov
 requests
