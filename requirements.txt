@@ -9,6 +9,7 @@ psycopg[binary]==3.3.2
 pydantic==2.13.4
 pyjwt==2.13.0
 python-dotenv==1.1.0
+requests
 SQLAlchemy==2.0.50
 supabase
 uvicorn==0.48.0
