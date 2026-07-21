@@ -30,7 +30,7 @@ def listar_donaciones(db: Session = Depends(get_db)):
     return listar_donaciones_disponibles(db)
 
 
-@router.post("", response_model=DonacionOut, status_code=201)
+@router.post("", response_model=DonacionOut, status_code=201) # 201 -> 500 -> 201
 def crear(body: DonacionCreate, db: Session = Depends(get_db)):
     foto_url = None
     if body.foto_base64:
